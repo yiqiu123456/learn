@@ -4,7 +4,7 @@
     <p>
       For a guide and recipes on how to configure / customize this project,<br>
       check out the
-      <a href="https://cli.vuejs.org" target="_blank" rel="noopener">vue-cli documentation</a>.
+      <a href="https://cli.vuejs.org" target="_blank" rel="noopener" @click="test">vue-cli documentation</a>.
     </p>
     <h3>Installed CLI Plugins</h3>
     <ul>
@@ -31,10 +31,25 @@
 </template>
 
 <script>
+// import * as acorn  from 'acorn'
+let { Parser } = require("acorn");
 export default {
   name: 'HelloWorld',
   props: {
     msg: String
+  },
+  data() {
+    return {}
+  },
+  mounted() {
+  },
+  methods: {
+    test() {
+      let code = "let a = 1 + 1";
+      debugger;
+      let ast = Parser.parse(code, {ecmaVersion: 2020});
+      console.log(ast);
+    }
   }
 }
 </script>
