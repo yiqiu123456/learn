@@ -1,5 +1,9 @@
 import { Context } from "./context"
+import { Scope } from "./scope";
 import { hasOwnProperty, createValOptoin } from "./utils"
+
+export { Evaluating }
+
 function Evaluating(ast) {
     this.ast = ast;
 }
@@ -9,16 +13,13 @@ let $p = Evaluating.prototype;
 $p.run = function () {
     let ast = this.ast;
     // 创建全局上下文对象
-    let context = new Context({ type: "globle" }, null);
+    let context = new Context({ type: "globle", variable: {} }, null);
     // 先解析Program节点， 解析阶段主要是创建上下对象和变量和函数提升
     if (ast.type === "Program") {
         let body = ast.body;
-        // 预解析提升变量和函数
-        this.parserBody(body, context);
         // 执行代码
         this.forEachNode(body, context);
     }
-    // 执行阶段
 
     return;
 }
@@ -105,15 +106,18 @@ $p.declarationsValueInit = function (node, valOption, context) {
 }
 
 $p.forEachNode = function (body, context) {
+    // 预解析提升变量和函数
+    this.parserBody(body, context);
+    // 执行代码
     body.forEach(v => {
         // for 语言代码块
         if (v.type === "ForStatement") {
             $p.evalForStatement(v, context);
-        } else if (v.type === "ExpressionStatement") {
+        } else if (v.type === "ExpressionStatement") { // 二元表达式
             let expressionNode = body.expression;
-            if (expressionNode.type === "AssignmentExpression") {
+            if (expressionNode.type === "AssignmentExpression") { // 赋值
                 this.evalAssignmentExpression(expressionNode, context, null);
-            } else if (expressionNode.type === "CallExpression") {
+            } else if (expressionNode.type === "CallExpression") { // 执行函数
                 this.eaclCallExpression(expressionNode, context, null);
             }
         }
@@ -177,24 +181,29 @@ $p.parseFunctionDeclaration = function (node, context) {
 
 // 运行for循环代码
 $p.evalForStatement = function (forStatementNode, context) {
+    // 创建块级作用域链变量对象， 暂时不处理块级作用域情况
+    // let partScope = new Scope(context.scope, {}, "part");
+    // context.pushScope(partScope);
     // 存储块级作用域变量对象
-    let partScope = {};
     let initNode = forStatementNode.init; // for(let i = 0;;)
     let testNode = forStatementNode.test; // for(; i < 10;)
     let updateNode = forStatementNode.update; // for(; ; i++)
     let bodyNode = forStatementNode.body; // for代码块的内容
-    this.parseForStatmentInit(initNode, context, partScope);
+    // 为了处理块级作用域，在for进入时会创建一个变量对象放入上下对象的作用域链最前端，for代码块结束时会删除这个块级作用域变量对象。
     for (
-        initNode ? this.parseForStatmentInit(initNode, context, partScope) : null
+        initNode ? this.parseForStatmentInit(initNode, context) : null
         ;
-        updateNode ? this.evalForUpdateNode(updateNode, context, partScope) : null
+        updateNode ? this.evalForUpdateNode(updateNode, context) : null
         ;
-        testNode ? this.eavlForTestNode(testNode, context, partScope) : null
+        testNode ? this.eavlForTestNode(testNode, context) : null
     ) {
-        this.eavlBodyNode(bodyNode, context, partScope);
+        this.eavlBodyNode(bodyNode, context);
     }
+
+    // 移除块级作用域
+    // context.popScope();
 }
-$p.parseForStatmentInit = function (forStatmentInitNode, context, partScope) {
+$p.parseForStatmentInit = function (forStatmentInitNode, context) {
     // 非空不是for( ; ;)
     if (!forStatmentInitNode) {
         // let i = 0; for(i = 1; ;) 
@@ -218,14 +227,14 @@ $p.parseForStatmentInit = function (forStatmentInitNode, context, partScope) {
                     if (kind === "var") {
                         context.setValueByName(name, val);
                     } else { // let, const 块级作用域
-                        partScope[name] = val;
+                        context.setValueByName(name, val);
                     }
                 } else if (initNode.type === "Indentifier") {
                     let name2 = initNode.name;
                     // 查找变量
                     // 函数作用域
                     if (kind === "var") {
-                        let val = this.searchVal(name2, context)
+                        let val = context.getValueByName(name2);
                         if (val) {
                             let v = createValOptoin(name, val.value, "var")
                             context.setValueByName(name, v);
@@ -234,13 +243,13 @@ $p.parseForStatmentInit = function (forStatmentInitNode, context, partScope) {
                             context.setValueByName(name, v);
                         }
                     } else { // let, const 块级作用域
-                        let val = this.searchVal(name2, context, partScope)
+                        let val = context.getValueByName(name2);
                         if (val) {
                             let v = createValOptoin(name, val.value, "const")
-                            partScope[name] = v;
+                            context.setValueByName(name, v);
                         } else {
                             let v = createValOptoin(name, undefined, "const")
-                            partScope[name] = v;
+                            context.setValueByName(name, v);
                         }
                     }
                 }
@@ -251,7 +260,7 @@ $p.parseForStatmentInit = function (forStatmentInitNode, context, partScope) {
 }
 
 
-$p.evalAssignmentExpression = function (assignmentExpressionNode, context, partScope) {
+$p.evalAssignmentExpression = function (assignmentExpressionNode, context) {
     let operator = assignmentExpressionNode.operator;
     let indentifierNode = assignmentExpressionNode.left;
     let name = indentifierNode.name;
@@ -264,7 +273,7 @@ $p.evalAssignmentExpression = function (assignmentExpressionNode, context, partS
     } else if (rightNode.type === "Indentifier") {
         name = rightNode.name;
         // 查找变量
-        let v = this.searchVal(context, partScope, name);
+        let v = context.getValueByName(name);
         if (v) {
             value = v.value;
         } else {
@@ -330,20 +339,6 @@ $p.eavlForTestNode = function (testNode, context, partScope) {
 
 }
 
-// 查找变量
-$p.searchVal = function (name, context, partScope) {
-    // 先在块级作用域查询变量
-    if (partScope) {  // 有块级作用域
-        let flag = hasOwnProperty(partScope, name);
-        if (flag) {
-            return partScope[name];
-        } else {
-            return context.getValueByName(name);
-        }
-    } else if (context) {
-        return context.getValueByName(name);
-    }
-}
 
 
 // 执行for ++ --
@@ -370,63 +365,77 @@ $p.getValue = function (context, partScope, name) {
     return valueOption;
 }
 
+// 执行函数调用
 $p.eavlCallExpression = function (callExpressionNode, context) {
     // 获取函数名称
-    let functionName = callExpressionNode.callee.name;
-    let func = context.getValueByName(context);
     let callee = callExpressionNode.callee;
-    let __arguments = callExpressionNode.arguments;
-    if (func) {
-        let functionNode = func.value;
-        let paramsNode = functionNode.params;
-        let funcBody = functionNode.body;
-        // 普通函数 f(a)
-        if (functionNode.type === "FunctionExpression") {
-            // 创建函数上下文对象
-            let funContext = this.createFunctionContext(context, paramsNode);
-            // 执行函数体
-            this.forEachNode(funcBody, funContext);
-        } else if (functionNode.type === "ArrowFunctionExpression") { // 箭头函数 a = i => {}
-            let literalContext = functionNode.context;
-            // 箭头函数() => {}, 使用词法作用域
-            let funContext = this.createFunctionContext(context, paramsNode, __arguments, literalContext);
-            // 执行函数体
-            this.forEachNode(funcBody, funContext);
-        }
+    // foo(1)
+    if (callee.type === "Identifier") {
+        let functionName = callExpressionNode.callee.name;
+        // 变量名称查询函数
+        let func = context.getValueByName(functionName);
+        let __arguments = callExpressionNode.arguments;
+        if (func) {
+            let functionNode = func.value;
+            let paramsNode = functionNode.params;
+            let funcBody = functionNode.body;
+            // 普通函数 f(a)
+            if (functionNode.type === "FunctionExpression") {
+                // 创建函数上下文活动对象
+                let funScope = this.createFunctionScope(context, paramsNode, __arguments);
+                // 使用函数活动对象，作为上下文对象this执行函数体
+                this.forEachNode(funcBody, funScope);
 
-    } else {
-        new Error("not fine function is name:" + functionName)
+            } else if (functionNode.type === "ArrowFunctionExpression") { // 箭头函数 a = i => {}
+                // 箭头函数() => {}, this使用词法作用域
+                let literalContext = functionNode.context;
+                // 使用词法作用域对象创建函数活动对象
+                let funScope = this.createFunctionScope(context, paramsNode, __arguments, literalContext);
+                // 使用词法作用域上下对象，作为上下文对象this执行函数体
+                this.forEachNode(funcBody, funScope);
+            }
+
+        } else {
+            new Error("not fine function is name:" + functionName)
+        }
+    } else if (callee.type === "MemberExpression") {  // console.log("a");
+        // 对象
+        // let objectNode = callee.object;
+        // 属性或者方法
+        // let propertyNode = callee.property;
+        // let argumentsNode = callee.arguments;
     }
+
 }
 
 // 创建函数活动对象
-$p.createFunctionContext = function (context, paramsNode, __arguments, literalContext) {
+$p.createFunctionScope = function (context, paramsNode, __arguments, literalContext) {
     let scopeObj = Object.create(null);
+    scopeObj.type = "function"
+    // 遍历函数定义参数
+    paramsNode.forEach((v, i) => {
+        let len = __arguments.lenght;
+        if (i < len) {  // 有值传入的参数
+            let optionVal = this.craetvalueOption("var", v.name, __arguments[i]);
+            scopeObj[v.name] = optionVal;
+        } else {    // 没有值传入的参数
+            let optionVal = this.craetvalueOption("var", v.name, undefined);
+            scopeObj[v.name] = optionVal;
+        }
+    });
+    scopeObj["__arguments__"] = __arguments;
+
     // 普通函数使用全局
     if (!literalContext) {
-        scopeObj.type = "variable"
-        let __arguments__ = [];
-        // 遍历函数参数
-        paramsNode.forEach(v => {
-            __arguments__.push(v);
-        })
-        scopeObj.__arguments__ = __arguments__;
         // 活动对象， 使用当前作用域
-        let funcContext = new Context(scopeObj, context);
-        return funcContext;
+        let functionScope = new Scope(context.Scope, scopeObj);
+        return functionScope;
     } else { // 箭头函数使用词法作用域
-        scopeObj.type = "variable"
-        let __arguments = [];
-        // 遍历函数参数
-        paramsNode.forEach(v => {
-            __arguments.push(v);
-            
-        })
-        scopeObj.__arguments = __arguments;
         // 活动对象,使用词法作用域
-        let funcContext = new Context(scopeObj, literalContext);
-        return funcContext;
+        let functionScope = new Scope(literalContext.Scope, scopeObj);
+        return functionScope;
     }
+
 }
 
 // 创建变量消息对象

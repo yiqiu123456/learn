@@ -1,18 +1,18 @@
 import hasOwnProperty from "./utils"
-// 作用域链
-function Scope(parentScope, variableObj) {
+// 作用域链, 全局环境为变量对象， 函数环境为活动对象
+function Scope(parentScope, variableObj = {}, type = "function") {
     // 存放变量
     this.variableObj = variableObj
     // 有父级作用域链
     if (parentScope) {
-        this.type = "function";
+        // type 有两个取值globle,function, part块级
+        this.type = type;
         this.parentScope = parentScope;
     } else {
         // 全局作用域
         this.type = "globle"
         this.parentScope = null;
     }
-    this.parentScope = parentScope;
 }
 
 let fn = Scope.prototype;

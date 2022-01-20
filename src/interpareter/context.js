@@ -46,4 +46,16 @@ fn.setValueByName = function (key, val) {
     }
 }
 
+// 在作用域链最前端添加添加作用域对象，js引擎是通过上下栈和上下文对象关联作用域链来实现逻辑调用，我们的实现比较简单没有上下栈。
+// 我们可以通过添加删除上下对象的作用域链最前端活动对象来说实现
+fn.pushScope = function (scope) {
+    this.scope = scope;
+}
+// 删除作用域对象最前端的变量对象
+fn.popScope = function () {
+    let scope = this.scope.parentScope;
+    if(!scope) {
+        this.scope = scope;
+    }
+}
 export { Context }
