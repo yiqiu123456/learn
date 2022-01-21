@@ -173,7 +173,7 @@ $p.parseFunctionDeclaration = function (node, context) {
     val.type = "FunctionDeclaration";
     // 函数名称
     val.name = node.id.name;
-    // 解析阶段，函数暂时不处理主要是创建上下对象和， 变量和函数提升。
+    // 解析阶段，函数暂时不处理主要是创建上下对象和，变量和函数提升。
     val.value = node;
     val.context = context; // () => {} 箭头函数this指向词法作用域
     context.setValueByName(val.name, val);
