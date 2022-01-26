@@ -1,27 +1,19 @@
 <template>
   <div id="app">
-    <editor />
+    <MonacoEditor :width="800" :height="600" />
   </div>
 </template>
 
 <script>
-import editor from '@/components/monaco/editor.vue'
+import MonacoEditor from "@/components/monaco/MonacoEditor.vue";
 
 export default {
-  name: 'App',
+  name: "App",
   components: {
-    editor
-  }
-}
+    MonacoEditor,
+  },
+};
 </script>
 
 <style>
-#app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-  margin-top: 60px;
-}
 </style>
