@@ -1,17 +1,21 @@
 <template>
   <div id="app">
-    <MonacoEditor :width="800" :height="600" />
+    <editorMain></editorMain>
   </div>
 </template>
 
 <script>
-import MonacoEditor from "@/components/monaco/MonacoEditor.vue";
+import editorMain from "@/views/editorMian.vue";
 
 export default {
   name: "App",
   components: {
-    MonacoEditor,
+    editorMain,
   },
+  data() {
+    return {};
+  },
+  methods: {},
 };
 </script>
 
