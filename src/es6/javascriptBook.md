@@ -879,7 +879,7 @@ JavaScript 是一门用来与网页交互的脚本语言，包含以下三个组
 ##  事件委托
     “过多事件处理程序”的解决方案是使用事件委托。事件委托利用事件冒泡，可以只使用一个事件处理程序来管理一种类型的事件。使用事件委托，只要给所有元素共同的祖先节点添加一个事件处理程序，就可以解决问题。
     let list = document.getElementId("myLinks);
-    list.addEventListener("click" (event) => {
+    list.addEventListener("click", (event) => {
         let target = event.target;
         switch( target.id) {
             
